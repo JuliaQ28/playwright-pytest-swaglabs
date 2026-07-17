@@ -1,4 +1,6 @@
-from playwright.sync_api import Page
+import re
+
+from playwright.sync_api import Page, expect
 
 
 class CheckoutInfoPage:
@@ -37,3 +39,8 @@ class CheckoutCompletePage:
     def __init__(self, page: Page):
         self.page = page
         self.thank_you_message = page.get_by_text("Thank you for your order!")
+
+    def is_order_complete(self) -> bool:
+        expect(self.page).to_have_url(re.compile(r".*checkout-complete\.html"))
+        expect(self.thank_you_message).to_be_visible()
+        return True

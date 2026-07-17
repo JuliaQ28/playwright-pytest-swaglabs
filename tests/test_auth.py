@@ -1,21 +1,17 @@
-import re
-
-from playwright.sync_api import Page, expect
-
 from pages.login_page import LoginPage
 from pages.inventory_page import InventoryPage
 from pages.cart_page import CartPage
 from pages.checkout_page import CheckoutInfoPage, CheckoutOverviewPage, CheckoutCompletePage
 
 
-def test_login_and_checkout(page: Page):
-    login_page = LoginPage(page)
-    inventory_page = InventoryPage(page)
-    cart_page = CartPage(page)
-    checkout_info_page = CheckoutInfoPage(page)
-    checkout_overview_page = CheckoutOverviewPage(page)
-    checkout_complete_page = CheckoutCompletePage(page)
-
+def test_login_and_checkout(
+    login_page: LoginPage,
+    inventory_page: InventoryPage,
+    cart_page: CartPage,
+    checkout_info_page: CheckoutInfoPage,
+    checkout_overview_page: CheckoutOverviewPage,
+    checkout_complete_page: CheckoutCompletePage,
+):
     # 1. 開啟首頁
     login_page.goto()
 
@@ -42,5 +38,18 @@ def test_login_and_checkout(page: Page):
     checkout_overview_page.finish()
 
     # 9. 最終驗證
-    expect(page).to_have_url(re.compile(r".*checkout-complete\.html"))
-    expect(checkout_complete_page.thank_you_message).to_be_visible()
+    assert checkout_complete_page.is_order_complete() is True
+
+
+def test_login_with_nonexistent_user(login_page: LoginPage):
+    # 1. 開啟首頁
+    login_page.goto()
+
+    # 2. 使用不存在的帳號登入
+    login_page.login("notexist_user", "secret_sauce")
+
+    # 3. 驗證錯誤提示訊息
+    assert (
+        login_page.get_error_message()
+        == "Epic sadface: Username and password do not match any user in this service"
+    )
