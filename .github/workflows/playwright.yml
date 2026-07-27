@@ -5,6 +5,17 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      deploy_to_pages:
+        description: "Publish the HTML report to GitHub Pages after this run"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   test:
@@ -35,3 +46,29 @@ jobs:
         with:
           name: playwright-report
           path: reports/report.html
+
+  deploy-pages:
+    needs: test
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_to_pages == true
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download test report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: pages-dist
+
+      - name: Rename report to index.html
+        run: mv pages-dist/report.html pages-dist/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
