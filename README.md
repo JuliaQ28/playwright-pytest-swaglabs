@@ -1,4 +1,7 @@
 # playwright-pytest-swaglabs
+
+![Playwright Tests](https://github.com/JuliaQ28/playwright-pytest-swaglabs/actions/workflows/playwright.yml/badge.svg)
+
 An end-to-end (E2E) UI and API test automation portfolio for Sauce Demo using Python, Playwright, and Pytest, including comprehensive test case management with a PM mindset.
 
 # Sauce Demo E-Commerce Test Case Matrix

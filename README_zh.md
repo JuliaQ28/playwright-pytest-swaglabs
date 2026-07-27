@@ -1,5 +1,7 @@
 # Sauce Demo 電商網站測試案例矩陣
 
+![Playwright Tests](https://github.com/JuliaQ28/playwright-pytest-swaglabs/actions/workflows/playwright.yml/badge.svg)
+
 ## 專案定位與商業價值
 
 本測試案例矩陣以 [Sauce Demo](https://www.saucedemo.com/) 電商網站為測試對象，由具備產品企劃背景的測試工程師規劃執行。
