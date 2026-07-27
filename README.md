@@ -50,8 +50,20 @@ Test design goes beyond simple script-based click validation, incorporating prod
 |---|---|---|---|---|---|---|
 | 3.1 Broken Image User Validation (Problem User) | P3 | 1. Log in as the designated user and validate the broken-image state | UI Test | problem_user / secret_sauce | On the product page, some items' `src` image paths are broken (showing a placeholder dog image), and some buttons may be unresponsive | Pass |
 | 3.2 Performance Glitch User | P2 | 1. Log in with the performance-glitch account and observe response time | UI Test | performance_glitch_user / secret_sauce | Login succeeds, but page load is noticeably delayed (e.g., over 5 seconds) — used to verify whether automation scripts time out or require an explicit wait | Pass |
-| 3.3 Backend Product Data Retrieval | P1 | Simulate the storefront requesting the product list from a backend API | API Test | Bearer Token / API Key | Verify HTTP status `200 OK`, and that the returned JSON contains `id`, `name`, `price` fields with correct data types | *Target site has no connected backend API; implemented via a separate project instead |
-| 3.4 Create Order at Checkout | P1 | Simulate the backend API receiving order data on checkout | API Test | HTTP POST Payload | Send product IDs and user data via POST; verify status `201 Created` and a unique `order_id` returned | *Target site has no connected backend API; implemented via a separate project instead |
+| 3.3 Backend Product Data Retrieval | P1 | Simulate the storefront requesting the product list from a backend API | API Test | Bearer Token / API Key | Verify HTTP status `200 OK`, and that the returned JSON contains `id`, `name`, `price` fields with correct data types | *Target site has no connected backend API; implemented against reqres.in instead — see Case 4 |
+| 3.4 Create Order at Checkout | P1 | Simulate the backend API receiving order data on checkout | API Test | HTTP POST Payload | Send product IDs and user data via POST; verify status `201 Created` and a unique `order_id` returned | *Target site has no connected backend API; implemented against reqres.in instead — see Case 4 |
+
+---
+
+## Case 4: API Test Scenarios (reqres.in)
+
+Since Sauce Demo has no connected backend API, the API test cases originally planned in 3.3 / 3.4 were implemented against [reqres.in](https://reqres.in) instead, as a stand-in target for demonstrating API automation skills (`tests/api/`). Requests are sent via Playwright's `APIRequestContext`, and response bodies are validated against typed schemas defined with Pydantic (`schemas/`) rather than raw dict key checks.
+
+| Case ID | Priority | Description / Steps | Test Type | Endpoint | Expected Result | Actual Result | Memo |
+|---|---|---|---|---|---|---|---|
+| 4.1 Get User List (GET) | P2 | 1. Call `GET /api/users?page=2` | API Test | reqres.in + `x-api-key` | Returns `200 OK`; JSON matches the `UsersListResponse` Pydantic schema; `page == 2` and `data` is non-empty | Pass | Schema validated via Pydantic |
+| 4.2 Create User (POST) | P2 | 1. Call `POST /api/users` with `{name, job}` | API Test | reqres.in + `x-api-key` | Returns `201 Created`; JSON includes auto-generated `id` and `createdAt` fields | Pass | - |
+| 4.3 Login & Get Token (POST) | P1 | 1. Call `POST /api/login` with valid credentials | API Test | reqres.in + `x-api-key` | Returns `200 OK`; JSON includes a non-empty `token` field | Pass | API key is loaded from `.env` (not committed) |
 
 ---
 

@@ -47,8 +47,20 @@
 |---|---|---|---|---|---|---|
 | 3.1 破圖用戶驗證 (Problem User) | P3 | 1. 登入指定用戶，驗證破圖異常狀態 | UI測試 | problem_user / secret_sauce | 進入商品頁後，部分商品的 `src` 圖片路徑異常（顯示小狗破圖），或是部分按鈕點擊失效 | Pass 通過 |
 | 3.2 登入效能異常用戶 | P2 | 1. 登入效能異常帳號，系統回應時間長 | UI測試 | performance_glitch_user / secret_sauce | 成功登入，但頁面載入時間明顯延遲（例如超過 5 秒），驗證自動化腳本是否會因為 Timeout 而失敗，或需加入 explicit wait | Pass 通過 |
-| 3.3 後端商品資料獲取 | P1 | 模擬電商前台向後端 API 請求商品清單 | API測試 | Bearer Token / API Key | 驗證 HTTP 狀態碼為 `200 OK`，且回傳的 JSON 結構中必須包含 `id`、`name`、`price` 等欄位，且型態正確 | *因目標網站無串連後端 API，故使用其他案例進行實作 |
-| 3.4 建立訂單與購物車結帳 | P1 | 模擬點擊結帳時，後端 API 接收訂單資料 | API測試 | HTTP POST Payload | 帶入商品 ID 與用戶資料發送 POST 請求，驗證狀態碼為 `201 Created`，並回傳唯一的 `order_id` | *因目標網站無串連後端 API，故使用其他案例進行實作 |
+| 3.3 後端商品資料獲取 | P1 | 模擬電商前台向後端 API 請求商品清單 | API測試 | Bearer Token / API Key | 驗證 HTTP 狀態碼為 `200 OK`，且回傳的 JSON 結構中必須包含 `id`、`name`、`price` 等欄位，且型態正確 | *目標網站無串連後端 API，已改以 reqres.in 實作，詳見 Case 4 |
+| 3.4 建立訂單與購物車結帳 | P1 | 模擬點擊結帳時，後端 API 接收訂單資料 | API測試 | HTTP POST Payload | 帶入商品 ID 與用戶資料發送 POST 請求，驗證狀態碼為 `201 Created`，並回傳唯一的 `order_id` | *目標網站無串連後端 API，已改以 reqres.in 實作，詳見 Case 4 |
+
+---
+
+## Case 4：API 測試情境 (reqres.in)
+
+因目標網站 Sauce Demo 無串接後端 API，原本 3.3 / 3.4 規劃的 API 測試案例改以 [reqres.in](https://reqres.in) 作為替代目標實作（詳見 `tests/api/`），用以展示 API 自動化測試能力。請求透過 Playwright 的 `APIRequestContext` 發送，回傳的 JSON 結構則以 Pydantic 定義的型別 schema（`schemas/`）進行校驗，而非逐一手動檢查 dict key。
+
+| Case ID | Priority | Description / 描述 | 測試屬性 | Endpoint | Expected / 預期 | Actual Result | Memo / 備忘 |
+|---|---|---|---|---|---|---|---|
+| 4.1 取得使用者列表 (GET) | P2 | 1. 呼叫 `GET /api/users?page=2` | API測試 | reqres.in + `x-api-key` | 回傳 `200 OK`；JSON 符合 `UsersListResponse` Pydantic schema；`page == 2` 且 `data` 陣列不為空 | Pass 通過 | 結構校驗使用 Pydantic |
+| 4.2 建立使用者 (POST) | P2 | 1. 呼叫 `POST /api/users`，帶入 `{name, job}` | API測試 | reqres.in + `x-api-key` | 回傳 `201 Created`；JSON 包含自動產生的 `id` 與 `createdAt` 欄位 | Pass 通過 | - |
+| 4.3 登入取得 Token (POST) | P1 | 1. 呼叫 `POST /api/login`，帶入合法帳密 | API測試 | reqres.in + `x-api-key` | 回傳 `200 OK`；JSON 包含非空的 `token` 欄位 | Pass 通過 | API Key 從 `.env` 讀取（不進版本控制） |
 
 ---
 
