@@ -21,6 +21,17 @@
 
 ---
 
+## 技術架構 (Tech Stack & Test Architecture)
+
+- **Page Object Model（`pages/`）**：每個真實頁面（登入、商品列表、購物車、結帳）都有獨立的 class，把該頁面的 locator 與操作方法封裝起來（例如 `LoginPage.login()`、`InventoryPage.is_loaded()`）。測試檔案完全不直接操作 locator，只呼叫 page object 的方法——之後 UI 改版，只需要改對應的一個 class，不用逐一修改每支測試
+- **Pytest Fixtures（`tests/conftest.py`）**：每個 page object 都封裝成 fixture（`login_page`、`inventory_page`、`cart_page`…），自動注入底層的 Playwright `page`。測試函式只需要在參數上宣告需要的 fixture，不需要在測試內手動 `LoginPage(page)` 建立實例
+- **Pydantic Schema 校驗（`schemas/`）**：API 回傳的 JSON 結構用型別化的 model（`UsersListResponse`、`LoginResponse`…）校驗，而非逐一手動檢查 dict key——欄位缺失或型態錯誤會直接拋出精確的 `ValidationError`，而不是模糊的 `KeyError`
+- **測試分類標籤（`smoke` / `regression`）**：測試依重要性打上標籤，CI 可以只跑 `smoke`（核心路徑快速回歸）或跑完整 `regression` 套件，詳見 [pytest.ini](pytest.ini)
+- **CI/CD（`.github/workflows/playwright.yml`）**：GitHub Actions 在每次 push/PR 時自動跑完整測試套件，產出 self-contained 的 `pytest-html` 報告並上傳為 build artifact，也可以手動觸發發布到 GitHub Pages
+- **機密資訊管理**：API 金鑰本機透過 `.env`（`python-dotenv` 讀取，已加入 `.gitignore`）管理，CI 環境則透過 GitHub Actions Secrets 注入，程式碼裡完全不寫死金鑰
+
+---
+
 ## Case 1：正向情境 (Happy Path)
 
 | Case ID | Priority | Description / 描述 | 測試屬性 | User / 帳號密碼 | Expected / 預期 | Actual Result | Memo / 備忘 |
@@ -37,8 +48,8 @@
 |---|---|---|---|---|---|---|---|
 | 2.1 結帳缺失必填欄位 (不輸入 Postal Code) | P2 | 1. 進入結帳頁第一步<br>2. 只輸入 First Name / Last Name，不輸入郵遞區號 | UI測試 | standard_user / secret_sauce | 點擊 Continue 後留在原頁，並跳出紅色錯誤提示 `Error: Postal Code is required` | Pass 通過 | - |
 | 2.2 購物車為空時點擊結帳 | P1 | 1. 不加入任何商品<br>2. 直接點入購物車點擊 Checkout | UI測試 | standard_user / secret_sauce | 跳出錯誤提示，請先添加商品 | **NG 不通過** | 無商品仍會跳轉至結帳頁 |
-| 2.3 錯誤帳號阻擋 | P1 | 1. [登入頁] 輸入錯誤帳號，系統進行阻擋 | UI測試 | notexist_user / secret_sauce | 登入按鈕上方提示顯示 `Epic sadface: Username and password do not match any user in this service` | Pass 通過 | 瀏覽器尺寸 1280 x 551 時，提示文字會破版 |
-| 2.4 錯誤密碼阻擋 | P1 | 1. [登入頁] 輸入錯誤密碼，系統進行阻擋 | UI測試 | standard_user / password | 登入按鈕上方提示顯示 `Epic sadface: Username and password do not match any user in this service` | Pass 通過 | 瀏覽器尺寸 1280 x 551 時，提示文字會破版 |
+| 2.3 錯誤帳號阻擋 | P1 | 1. [登入頁] 輸入錯誤帳號，系統進行阻擋 | UI測試 | notexist_user / secret_sauce | 登入按鈕上方提示顯示 `Epic sadface: Username and password do not match any user in this service` | Pass 通過 | 瀏覽器尺寸 1280 x 551 時，提示文字會破版。與 2.4 合併為一支 `@pytest.mark.parametrize` 資料驅動測試（`test_login_with_invalid_credentials`），而非寫兩支幾乎重複的測試函式 |
+| 2.4 錯誤密碼阻擋 | P1 | 1. [登入頁] 輸入錯誤密碼，系統進行阻擋 | UI測試 | standard_user / password | 登入按鈕上方提示顯示 `Epic sadface: Username and password do not match any user in this service` | Pass 通過 | 與 2.3 共用同一支參數化測試，詳見上方 Memo |
 | 2.5 登入鎖定帳號阻擋 | P2 | 1. [登入頁] 登入被鎖定帳號，系統進行阻擋 | UI測試 | locked_out_user / secret_sauce | 登入按鈕上方提示顯示 `Epic sadface: Sorry, this user has been locked out.` | Pass 通過 | - |
 
 ---
@@ -63,6 +74,7 @@
 | 4.1 取得使用者列表 (GET) | P2 | 1. 呼叫 `GET /api/users?page=2` | API測試 | reqres.in + `x-api-key` | 回傳 `200 OK`；JSON 符合 `UsersListResponse` Pydantic schema；`page == 2` 且 `data` 陣列不為空 | Pass 通過 | 結構校驗使用 Pydantic |
 | 4.2 建立使用者 (POST) | P2 | 1. 呼叫 `POST /api/users`，帶入 `{name, job}` | API測試 | reqres.in + `x-api-key` | 回傳 `201 Created`；JSON 包含自動產生的 `id` 與 `createdAt` 欄位 | Pass 通過 | - |
 | 4.3 登入取得 Token (POST) | P1 | 1. 呼叫 `POST /api/login`，帶入合法帳密 | API測試 | reqres.in + `x-api-key` | 回傳 `200 OK`；JSON 包含非空的 `token` 欄位 | Pass 通過 | API Key 從 `.env` 讀取（不進版本控制） |
+| 4.4 登入缺少密碼 (POST, 反向情境) | P2 | 1. 呼叫 `POST /api/login`，只帶入 `email`，不帶 `password` | API測試 | reqres.in + `x-api-key` | 回傳 `400 Bad Request`；JSON 符合 `ErrorResponse` schema，`error == "Missing password"` | Pass 通過 | 補齊 API 測試的反向情境覆蓋（Case 4 其餘案例皆為正向情境） |
 
 ---
 

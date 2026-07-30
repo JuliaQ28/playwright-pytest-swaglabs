@@ -1,9 +1,13 @@
+import pytest
+
 from pages.login_page import LoginPage
 from pages.inventory_page import InventoryPage
 from pages.cart_page import CartPage
 from pages.checkout_page import CheckoutInfoPage, CheckoutOverviewPage, CheckoutCompletePage
 
 
+@pytest.mark.smoke
+@pytest.mark.regression
 def test_login_and_checkout(
     login_page: LoginPage,
     inventory_page: InventoryPage,
@@ -41,12 +45,20 @@ def test_login_and_checkout(
     assert checkout_complete_page.is_order_complete() is True
 
 
-def test_login_with_nonexistent_user(login_page: LoginPage):
+@pytest.mark.regression
+@pytest.mark.parametrize(
+    "username, password",
+    [
+        pytest.param("notexist_user", "secret_sauce", id="invalid_username"),
+        pytest.param("standard_user", "password", id="invalid_password"),
+    ],
+)
+def test_login_with_invalid_credentials(login_page: LoginPage, username: str, password: str):
     # 1. 開啟首頁
     login_page.goto()
 
-    # 2. 使用不存在的帳號登入
-    login_page.login("notexist_user", "secret_sauce")
+    # 2. 使用錯誤帳號或密碼登入
+    login_page.login(username, password)
 
     # 3. 驗證錯誤提示訊息
     assert (

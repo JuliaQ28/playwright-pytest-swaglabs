@@ -25,6 +25,17 @@ Test design goes beyond simple script-based click validation, incorporating prod
 
 ---
 
+## Tech Stack & Test Architecture
+
+- **Page Object Model (`pages/`)**: Each real page (login, inventory, cart, checkout) has its own class encapsulating that page's locators and user actions (e.g. `LoginPage.login()`, `InventoryPage.is_loaded()`). Test files never touch raw locators directly — they only call page object methods, so a UI change only requires updating one class instead of every test that touches that page.
+- **Pytest Fixtures (`tests/conftest.py`)**: Every page object is exposed as a fixture (`login_page`, `inventory_page`, `cart_page`, …) that auto-injects the underlying Playwright `page`. Test functions simply declare the fixtures they need as parameters — no manual `LoginPage(page)` instantiation inside test bodies.
+- **Schema Validation with Pydantic (`schemas/`)**: API responses are validated against typed models (`UsersListResponse`, `LoginResponse`, …) instead of ad-hoc dict key checks — a missing field or wrong type raises a precise `ValidationError` instead of a confusing `KeyError`.
+- **Test Markers (`smoke` / `regression`)**: Tests are tagged so CI can run a fast smoke subset (critical paths) separately from the full regression suite — see [pytest.ini](pytest.ini).
+- **CI/CD (`.github/workflows/playwright.yml`)**: GitHub Actions runs the full suite on every push/PR, generates a self-contained `pytest-html` report, uploads it as a build artifact, and can optionally publish it to GitHub Pages on manual trigger.
+- **Secrets Management**: API keys are loaded from a local `.env` file (via `python-dotenv`, gitignored) locally, and from GitHub Actions Secrets in CI — never hardcoded in source.
+
+---
+
 ## Case 1: Positive Scenarios (Happy Path)
 
 | Case ID | Priority | Description / Steps | Test Type | User / Credentials | Expected Result | Actual Result | Memo |
@@ -41,8 +52,8 @@ Test design goes beyond simple script-based click validation, incorporating prod
 |---|---|---|---|---|---|---|---|
 | 2.1 Missing Required Field at Checkout (No Postal Code) | P2 | 1. Enter checkout step one<br>2. Fill in First Name / Last Name only, leave Postal Code blank | UI Test | standard_user / secret_sauce | Clicking Continue keeps user on the same page and shows a red error: `Error: Postal Code is required` | Pass | - |
 | 2.2 Checkout with Empty Cart | P1 | 1. Add no items to cart<br>2. Go directly to cart and click Checkout | UI Test | standard_user / secret_sauce | An error message prompts the user to add items first | **Fail** | Checkout page is still reachable with an empty cart |
-| 2.3 Invalid Username Blocked | P1 | 1. On the login page, enter an invalid username | UI Test | notexist_user / secret_sauce | An error appears above the login button: `Epic sadface: Username and password do not match any user in this service` | Pass | At 1280 x 551 viewport, the error text layout breaks |
-| 2.4 Invalid Password Blocked | P1 | 1. On the login page, enter an invalid password | UI Test | standard_user / password | An error appears above the login button: `Epic sadface: Username and password do not match any user in this service` | Pass | At 1280 x 551 viewport, the error text layout breaks |
+| 2.3 Invalid Username Blocked | P1 | 1. On the login page, enter an invalid username | UI Test | notexist_user / secret_sauce | An error appears above the login button: `Epic sadface: Username and password do not match any user in this service` | Pass | At 1280 x 551 viewport, the error text layout breaks. Implemented together with 2.4 as one data-driven `@pytest.mark.parametrize` test (`test_login_with_invalid_credentials`) instead of two near-duplicate test functions |
+| 2.4 Invalid Password Blocked | P1 | 1. On the login page, enter an invalid password | UI Test | standard_user / password | An error appears above the login button: `Epic sadface: Username and password do not match any user in this service` | Pass | Same parametrized test as 2.3 — see Memo above |
 | 2.5 Locked-Out Account Blocked | P2 | 1. On the login page, log in with a locked-out account | UI Test | locked_out_user / secret_sauce | An error appears above the login button: `Epic sadface: Sorry, this user has been locked out.` | Pass | - |
 
 ---
@@ -67,6 +78,7 @@ Since Sauce Demo has no connected backend API, the API test cases originally pla
 | 4.1 Get User List (GET) | P2 | 1. Call `GET /api/users?page=2` | API Test | reqres.in + `x-api-key` | Returns `200 OK`; JSON matches the `UsersListResponse` Pydantic schema; `page == 2` and `data` is non-empty | Pass | Schema validated via Pydantic |
 | 4.2 Create User (POST) | P2 | 1. Call `POST /api/users` with `{name, job}` | API Test | reqres.in + `x-api-key` | Returns `201 Created`; JSON includes auto-generated `id` and `createdAt` fields | Pass | - |
 | 4.3 Login & Get Token (POST) | P1 | 1. Call `POST /api/login` with valid credentials | API Test | reqres.in + `x-api-key` | Returns `200 OK`; JSON includes a non-empty `token` field | Pass | API key is loaded from `.env` (not committed) |
+| 4.4 Login with Missing Password (POST, Negative) | P2 | 1. Call `POST /api/login` with only `email`, no `password` | API Test | reqres.in + `x-api-key` | Returns `400 Bad Request`; JSON matches `ErrorResponse` schema with `error == "Missing password"` | Pass | Covers negative-path API coverage (all other Case 4 tests are happy-path only) |
 
 ---
 
